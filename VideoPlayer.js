@@ -11,9 +11,11 @@ import {
     Easing,
     Image,
     View,
-    Text
+    Text,
+    I18nManager
 } from 'react-native';
 import _ from 'lodash';
+import Slider from '@react-native-community/slider';
 
 export default class VideoPlayer extends Component {
 
@@ -50,16 +52,8 @@ export default class VideoPlayer extends Component {
 
             isFullscreen: this.props.isFullScreen || this.props.resizeMode === 'cover' || false,
             showTimeRemaining: true,
-            volumeTrackWidth: 0,
             lastScreenPress: 0,
-            volumeFillWidth: 0,
-            seekerFillWidth: 0,
             showControls: this.props.showOnStart,
-            volumePosition: 0,
-            seekerPosition: 0,
-            volumeOffset: 0,
-            seekerOffset: 0,
-            seeking: false,
             loading: false,
             currentTime: 0,
             error: false,
@@ -101,6 +95,7 @@ export default class VideoPlayer extends Component {
             togglePlayPause: this._togglePlayPause.bind(this),
             toggleControls: this._toggleControls.bind(this),
             toggleTimer: this._toggleTimer.bind(this),
+            toggleVolume: this._toggleVolume.bind(this)
         };
 
         /**
@@ -108,10 +103,7 @@ export default class VideoPlayer extends Component {
          */
         this.player = {
             controlTimeoutDelay: this.props.controlTimeout || 15000,
-            volumePanResponder: PanResponder,
-            seekPanResponder: PanResponder,
             controlTimeout: null,
-            volumeWidth: 150,
             iconOffset: 0,
             seekerWidth: 0,
             ref: Video,
@@ -285,6 +277,7 @@ export default class VideoPlayer extends Component {
      * Default is 15s
      */
     setControlTimeout() {
+        return;
         this.player.controlTimeout = setTimeout(() => {
             this._hideControls();
         }, this.player.controlTimeoutDelay);
@@ -311,6 +304,7 @@ export default class VideoPlayer extends Component {
      * screen so they're not interactable
      */
     hideControlAnimation() {
+        return;
         Animated.parallel([
             Animated.timing(
                 this.animations.topControl.opacity,
@@ -337,6 +331,7 @@ export default class VideoPlayer extends Component {
      * fade in.
      */
     showControlAnimation() {
+        return;
         Animated.parallel([
             Animated.timing(
                 this.animations.topControl.opacity,
@@ -458,6 +453,10 @@ export default class VideoPlayer extends Component {
         }
 
         this.setState(state);
+    }
+
+    _toggleVolume() {
+        this.setState({ volume: this.state.volume == 0 ? 1 : 0 });
     }
 
     /**
@@ -590,67 +589,6 @@ export default class VideoPlayer extends Component {
         this.setState(state);
     }
 
-    /**
-     * Set the position of the volume slider
-     *
-     * @param {float} position position of the volume handle in px
-     */
-    setVolumePosition(position = 0) {
-        let state = this.state;
-        position = this.constrainToVolumeMinMax(position);
-        state.volumePosition = position + this.player.iconOffset;
-        state.volumeFillWidth = position;
-
-        state.volumeTrackWidth = this.player.volumeWidth - state.volumeFillWidth;
-
-        if (state.volumeFillWidth < 0) {
-            state.volumeFillWidth = 0;
-        }
-
-        if (state.volumeTrackWidth > 150) {
-            state.volumeTrackWidth = 150;
-        }
-
-        this.setState(state);
-    }
-
-    /**
-     * Constrain the volume bar to the min/max of
-     * its track's width.
-     *
-     * @param {float} val position of the volume handle in px
-     * @return {float} contrained position of the volume handle in px
-     */
-    constrainToVolumeMinMax(val = 0) {
-        if (val <= 0) {
-            return 0;
-        }
-        else if (val >= this.player.volumeWidth + 9) {
-            return this.player.volumeWidth + 9;
-        }
-        return val;
-    }
-
-    /**
-     * Get the volume based on the position of the
-     * volume object.
-     *
-     * @return {float} volume level based on volume handle position
-     */
-    calculateVolumeFromVolumePosition() {
-        return this.state.volumePosition / this.player.volumeWidth;
-    }
-
-    /**
-     * Get the position of the volume handle based
-     * on the volume
-     *
-     * @return {float} volume handle position in px based on volume
-     */
-    calculateVolumePositionFromVolume() {
-        return this.player.volumeWidth * this.state.volume;
-    }
-
 
 
     /**
@@ -669,8 +607,6 @@ export default class VideoPlayer extends Component {
      * pan responders.
      */
     UNSAFE_componentWillMount() {
-        this.initSeekPanResponder();
-        this.initVolumePanResponder();
     }
 
     /**
@@ -698,10 +634,8 @@ export default class VideoPlayer extends Component {
      * bar based on the volume property supplied to it.
      */
     componentDidMount() {
-        const position = this.calculateVolumePositionFromVolume();
+
         let state = this.state;
-        this.setVolumePosition(position);
-        state.volumeOffset = position;
         this.mounted = true;
 
         this.setState(state);
@@ -720,6 +654,7 @@ export default class VideoPlayer extends Component {
      * Get our seekbar responder going
      */
     initSeekPanResponder() {
+        return;
         this.player.seekPanResponder = PanResponder.create({
 
             // Ask to be the responder.
@@ -770,48 +705,28 @@ export default class VideoPlayer extends Component {
     /**
      * Initialize the volume pan responder.
      */
-    initVolumePanResponder() {
-        this.player.volumePanResponder = PanResponder.create({
-            onStartShouldSetPanResponder: (evt, gestureState) => true,
-            onMoveShouldSetPanResponder: (evt, gestureState) => true,
-            onPanResponderGrant: (evt, gestureState) => {
-                this.clearControlTimeout();
-            },
 
-            /**
-             * Update the volume as we change the position.
-             * If we go to 0 then turn on the mute prop
-             * to avoid that weird static-y sound.
-             */
-            onPanResponderMove: (evt, gestureState) => {
-                let state = this.state;
-                const position = this.state.volumeOffset + gestureState.dx;
-
-                this.setVolumePosition(position);
-                state.volume = this.calculateVolumeFromVolumePosition();
-
-                if (state.volume <= 0) {
-                    state.muted = true;
-                }
-                else {
-                    state.muted = false;
-                }
-
-                this.setState(state);
-            },
-
-            /**
-             * Update the offset...
-             */
-            onPanResponderRelease: (evt, gestureState) => {
-                let state = this.state;
-                state.volumeOffset = state.volumePosition;
-                this.setControlTimeout();
-                this.setState(state);
-            }
-        });
+    onSlidingStart = () => {
+        if (!this.state.paused) {
+            this.setState({ tempPause: true });
+            this._togglePlayPause();
+        }
     }
 
+    onValueChange = (value) => {
+        if (!this.state.paused) {
+            this.setState({ tempPause: true });
+            this._togglePlayPause();
+        }
+        this.seekTo(value);
+    }
+
+    onSlidingComplete = () => {
+        return;
+        if (this.state.tempPause) {
+            this._togglePlayPause();
+        }
+    }
 
     /**
     | -------------------------------------------------------
@@ -866,7 +781,6 @@ export default class VideoPlayer extends Component {
     renderTopControls() {
 
         const backControl = this.props.disableBack ? this.renderNullControl() : this.renderBack();
-        const volumeControl = this.props.disableVolume ? this.renderNullControl() : this.renderVolume();
         const fullscreenControl = this.props.disableFullscreen ? this.renderNullControl() : this.renderFullscreen();
 
         return (
@@ -884,7 +798,6 @@ export default class VideoPlayer extends Component {
                     <SafeAreaView style={styles.controls.topControlGroup}>
                         {backControl}
                         <View style={styles.controls.pullRight}>
-                            {volumeControl}
                             {fullscreenControl}
                         </View>
                     </SafeAreaView>
@@ -912,26 +825,16 @@ export default class VideoPlayer extends Component {
      * Render the volume slider and attach the pan handlers
      */
     renderVolume() {
+        let source = require('./assets/img/volume.png');
 
         return (
-            <View style={styles.volume.container}>
-                <View style={[
-                    styles.volume.fill,
-                    { width: this.state.volumeFillWidth }
-                ]} />
-                <View style={[
-                    styles.volume.track,
-                    { width: this.state.volumeTrackWidth }
-                ]} />
-                <View
-                    style={[
-                        styles.volume.handle,
-                        { left: this.state.volumePosition }
-                    ]}
-                    {...this.player.volumePanResponder.panHandlers}
-                >
-                    <Image style={styles.volume.icon} source={require('./assets/img/volume.png')} />
-                </View>
+            <View>
+                {this.renderControl(
+                    <Image source={source} />,
+                    this.methods.toggleVolume,
+                    styles.controls.volume
+                )}
+                {this.state.volume == 0 ? <View style={{ position: 'absolute', height: 1, width: 25, marginTop: 24, marginLeft: 11, transform: [{ rotate: '45deg' }], backgroundColor: 'white' }} /> : null}
             </View>
         );
     }
@@ -957,14 +860,10 @@ export default class VideoPlayer extends Component {
         const timerControl = this.props.disableTimer ? this.renderNullControl() : this.renderTimer();
         const seekbarControl = this.props.disableSeekbar ? this.renderNullControl() : this.renderSeekbar();
         const playPauseControl = this.props.disablePlayPause ? this.renderNullControl() : this.renderPlayPause();
-
+        const volumeControl = this.props.disableVolume ? this.renderNullControl() : this.renderVolume();
         return (
-            <Animated.View style={[
+            <View style={[
                 styles.controls.bottom,
-                {
-                    opacity: this.animations.bottomControl.opacity,
-                    marginBottom: this.animations.bottomControl.marginBottom,
-                }
             ]}>
                 <ImageBackground
                     source={require('./assets/img/bottom-vignette.png')}
@@ -973,12 +872,15 @@ export default class VideoPlayer extends Component {
                     {seekbarControl}
                     <SafeAreaView
                         style={[styles.controls.row, styles.controls.bottomControlGroup]}>
-                        {playPauseControl}
+                        <View style={styles.controls.row}>
+                            {playPauseControl}
+                            {timerControl}
+                        </View>
                         {this.renderTitle()}
-                        {timerControl}
+                        {volumeControl}
                     </SafeAreaView>
                 </ImageBackground>
-            </Animated.View>
+            </View>
         );
     }
 
@@ -986,7 +888,23 @@ export default class VideoPlayer extends Component {
      * Render the seekbar and attach its handlers
      */
     renderSeekbar() {
-
+        return (
+            <View style={styles.seekbar.container}
+                onLayout={event => this.player.seekerWidth = event.nativeEvent.layout.width}
+            >
+                <Slider
+                    minimumValue={0}
+                    maximumValue={this.state.duration}
+                    value={this.state.currentTime}
+                    onValueChange={this.onValueChange}
+                    onSlidingStart={this.onSlidingStart}
+                    onSlidingComplete={this.onSlidingComplete}
+                    minimumTrackTintColor={'white'}
+                    maximumTrackTintColor={'white'}
+                    thumbTintColor={'white'}
+                />
+            </View>
+        )
         return (
             <View style={styles.seekbar.container}>
                 <View
@@ -1113,8 +1031,8 @@ export default class VideoPlayer extends Component {
      */
     render() {
         return (
-            <TouchableWithoutFeedback
-                onPress={this.events.onScreenTouch}
+            <View
+                // onPress={this.events.onScreenTouch}
                 style={[styles.player.container, this.styles.containerStyle]}
             >
                 <View style={[styles.player.container, this.styles.containerStyle]}>
@@ -1143,7 +1061,7 @@ export default class VideoPlayer extends Component {
                     {this.renderLoader()}
                     {this.renderBottomControls()}
                 </View>
-            </TouchableWithoutFeedback>
+            </View>
         );
     }
 }
@@ -1202,11 +1120,12 @@ const styles = {
     }),
     controls: StyleSheet.create({
         row: {
-            flexDirection: 'row',
+            flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             height: null,
             width: null,
+
         },
         column: {
             flexDirection: 'column',
@@ -1246,7 +1165,7 @@ const styles = {
             alignSelf: 'stretch',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexDirection: 'row',
+            flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
             width: null,
             margin: 12,
             marginBottom: 18,
@@ -1260,14 +1179,16 @@ const styles = {
             marginBottom: 0,
         },
         volume: {
-            flexDirection: 'row',
+            position: 'relative',
+            width: 40,
+            zIndex: 0
         },
         fullscreen: {
             flexDirection: 'row',
         },
         playPause: {
             position: 'relative',
-            width: 80,
+            width: 40,
             zIndex: 0
         },
         title: {
@@ -1280,13 +1201,13 @@ const styles = {
             textAlign: 'center',
         },
         timer: {
-            width: 80,
+            width: 100,
         },
         timerText: {
             backgroundColor: 'transparent',
             color: '#FFF',
             fontSize: 11,
-            textAlign: 'right',
+            textAlign: I18nManager.isRTL ? 'right' : 'left',
         },
     }),
     volume: StyleSheet.create({
