@@ -444,15 +444,15 @@ export default class VideoPlayer extends Component {
     _togglePlayPause() {
         let state = this.state;
         state.paused = !state.paused;
+        this.setState(state);
 
         if (state.paused) {
             typeof this.events.onPause === 'function' && this.events.onPause();
         }
         else {
             typeof this.events.onPlay === 'function' && this.events.onPlay();
-        }
 
-        this.setState(state);
+        }
     }
 
     _toggleVolume() {
@@ -614,18 +614,18 @@ export default class VideoPlayer extends Component {
      * we have to handle possible props changes to state changes
      */
     UNSAFE_componentWillReceiveProps(nextProps) {
-        if (this.state.paused !== nextProps.paused) {
+        if (this.props.paused !== nextProps.paused) {
             this.setState({
                 paused: nextProps.paused
             })
         }
 
-        if (this.styles.videoStyle !== nextProps.videoStyle) {
-            this.styles.videoStyle = nextProps.videoStyle;
+        if (this.props.videoStyle !== nextProps.videoStyle) {
+            this.props.videoStyle = nextProps.videoStyle;
         }
 
-        if (this.styles.containerStyle !== nextProps.style) {
-            this.styles.containerStyle = nextProps.style;
+        if (this.props.containerStyle !== nextProps.style) {
+            this.props.containerStyle = nextProps.style;
         }
     }
 
