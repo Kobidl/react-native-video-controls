@@ -50,7 +50,7 @@ interface Props {
     disableSeekbar?: boolean,
     disablePlayPause?: boolean,
     disableVolume?: boolean,
-    source: string,
+    source: { uri: string },
     disableBack?: boolean,
     disableFullscreen?: boolean
 }
