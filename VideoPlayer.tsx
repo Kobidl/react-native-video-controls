@@ -12,12 +12,75 @@ import {
     Image,
     View,
     Text,
-    I18nManager
+    I18nManager,
+    ImageProps,
+    ViewStyle
 } from 'react-native';
 import _ from 'lodash';
 import Slider from '@react-native-community/slider';
 
-export default class VideoPlayer extends Component {
+interface Props {
+    toggleResizeModeOnFullscreen: boolean,
+    playInBackground: boolean,
+    playWhenInactive: boolean,
+    showOnStart: boolean,
+    resizeMode: ImageProps["resizeMode"],
+    paused: boolean,
+    repeat: boolean,
+    volume: number,
+    muted: boolean,
+    title: string,
+    rate: number,
+    isFullscreen?: boolean,
+    videoStyle?: ViewStyle,
+    style?: ViewStyle,
+    onError?: any,
+    onBack?: any,
+    onEnd?: any,
+    onEnterFullscreen?: any,
+    onExitFullscreen?: any,
+    onPause?: any,
+    onPlay?: any,
+    controlTimeout?: any,
+    onLoadStart?: any,
+    onLoad?: any,
+    onProgress?: any,
+    navigator?: any,
+    disableTimer?: boolean
+    disableSeekbar?: boolean,
+    disablePlayPause?: boolean,
+    disableVolume?: boolean,
+    source: string,
+    disableBack?: boolean,
+    disableFullscreen?: boolean
+}
+
+interface State {
+    resizeMode: ImageProps["resizeMode"],
+    paused: Props["paused"],
+    muted: Props["muted"],
+    volume: Props["volume"],
+    rate: Props["rate"],
+    // Controls
+
+    isFullscreen: Props["isFullscreen"],
+    showTimeRemaining: boolean,
+    lastScreenPress: number,
+    showControls: Props["showOnStart"],
+    loading: boolean,
+    currentTime: number,
+    error: boolean,
+    duration: number,
+    seeking?: boolean,
+    showRemainingTime?: boolean//unused,
+    seekerFillWidth?: number,
+    seekerPosition?: number,
+    seekerOffset?: number,
+    tempPause?: boolean
+}
+
+export default class VideoPlayer extends Component<Props, State> {
+    public readonly state: State;
 
     static defaultProps = {
         toggleResizeModeOnFullscreen: true,
@@ -34,7 +97,7 @@ export default class VideoPlayer extends Component {
         isFullscreen: false,
     };
 
-    constructor(props) {
+    constructor(props: Props) {
         super(props);
 
         /**
@@ -43,105 +106,107 @@ export default class VideoPlayer extends Component {
          */
         this.state = {
             // Video
-            resizeMode: this.props.resizeMode,
-            paused: this.props.paused,
-            muted: this.props.muted,
-            volume: this.props.volume,
-            rate: this.props.rate,
+            resizeMode: props.resizeMode,
+            paused: props.paused,
+            muted: props.muted,
+            volume: props.volume,
+            rate: props.rate,
             // Controls
 
-            isFullscreen: this.props.isFullScreen || this.props.resizeMode === 'cover' || false,
+            isFullscreen: props.isFullscreen || props.resizeMode === 'cover' || false,
             showTimeRemaining: true,
             lastScreenPress: 0,
-            showControls: this.props.showOnStart,
+            showControls: props.showOnStart,
             loading: false,
             currentTime: 0,
             error: false,
             duration: 0,
         };
-
-        /**
-         * Any options that can be set at init.
-         */
-        this.opts = {
-            playWhenInactive: this.props.playWhenInactive,
-            playInBackground: this.props.playInBackground,
-            repeat: this.props.repeat,
-            title: this.props.title,
-        };
-
-        /**
-         * Our app listeners and associated methods
-         */
-        this.events = {
-            onError: this.props.onError || this._onError.bind(this),
-            onBack: this.props.onBack || this._onBack.bind(this),
-            onEnd: this.props.onEnd || this._onEnd.bind(this),
-            onScreenTouch: this._onScreenTouch.bind(this),
-            onEnterFullscreen: this.props.onEnterFullscreen,
-            onExitFullscreen: this.props.onExitFullscreen,
-            onLoadStart: this._onLoadStart.bind(this),
-            onProgress: this._onProgress.bind(this),
-            onLoad: this._onLoad.bind(this),
-            onPause: this.props.onPause,
-            onPlay: this.props.onPlay,
-        };
-
-        /**
-         * Functions used throughout the application
-         */
-        this.methods = {
-            toggleFullscreen: this._toggleFullscreen.bind(this),
-            togglePlayPause: this._togglePlayPause.bind(this),
-            toggleControls: this._toggleControls.bind(this),
-            toggleTimer: this._toggleTimer.bind(this),
-            toggleVolume: this._toggleVolume.bind(this)
-        };
-
-        /**
-         * Player information
-         */
-        this.player = {
-            controlTimeoutDelay: this.props.controlTimeout || 15000,
-            controlTimeout: null,
-            iconOffset: 0,
-            seekerWidth: 0,
-            ref: Video,
-        };
-
-        /**
-         * Various animations
-         */
-        const initialValue = this.props.showOnStart ? 1 : 0;
-
-        this.animations = {
-            bottomControl: {
-                marginBottom: new Animated.Value(0),
-                opacity: new Animated.Value(initialValue),
-            },
-            topControl: {
-                marginTop: new Animated.Value(0),
-                opacity: new Animated.Value(initialValue),
-            },
-            video: {
-                opacity: new Animated.Value(1),
-            },
-            loader: {
-                rotate: new Animated.Value(0),
-                MAX_VALUE: 360,
-            }
-        };
-
-        /**
-         * Various styles that be added...
-         */
-        this.styles = {
-            videoStyle: this.props.videoStyle || {},
-            containerStyle: this.props.style || {}
-        };
     }
 
+    /**
+       * Any options that can be set at init.
+       */
+    opts = {
+        playWhenInactive: this.props.playWhenInactive,
+        playInBackground: this.props.playInBackground,
+        repeat: this.props.repeat,
+        title: this.props.title,
+    };
 
+    /**
+     * Our app listeners and associated methods
+     */
+    events = {
+        onError: this.props.onError || this._onError.bind(this),
+        onBack: this.props.onBack || this._onBack.bind(this),
+        onEnd: this.props.onEnd || this._onEnd.bind(this),
+        onScreenTouch: this._onScreenTouch.bind(this),
+        onEnterFullscreen: this.props.onEnterFullscreen,
+        onExitFullscreen: this.props.onExitFullscreen,
+        onLoadStart: this._onLoadStart.bind(this),
+        onProgress: this._onProgress.bind(this),
+        onLoad: this._onLoad.bind(this),
+        onPause: this.props.onPause,
+        onPlay: this.props.onPlay,
+    };
+
+    /**
+     * Functions used throughout the application
+     */
+    methods = {
+        toggleFullscreen: this._toggleFullscreen.bind(this),
+        togglePlayPause: this._togglePlayPause.bind(this),
+        toggleControls: this._toggleControls.bind(this),
+        toggleTimer: this._toggleTimer.bind(this),
+        toggleVolume: this._toggleVolume.bind(this)
+    };
+
+    /**
+     * Player information
+     */
+    player = {
+        controlTimeoutDelay: this.props.controlTimeout || 15000,
+        controlTimeout: null,
+        iconOffset: 0,
+        seekerWidth: 0,
+        ref: Video,
+        seekPanResponder: null
+    };
+
+    /**
+     * Various animations
+     */
+    initialValue = this.props.showOnStart ? 1 : 0;
+
+    animations = {
+        bottomControl: {
+            marginBottom: new Animated.Value(0),
+            opacity: new Animated.Value(this.initialValue),
+        },
+        topControl: {
+            marginTop: new Animated.Value(0),
+            opacity: new Animated.Value(this.initialValue),
+        },
+        video: {
+            opacity: new Animated.Value(1),
+        },
+        loader: {
+            rotate: new Animated.Value(0),
+            MAX_VALUE: 360,
+        }
+    };
+
+    /**
+     * Various styles that be added...
+     */
+    styles = {
+        videoStyle: this.props.videoStyle || {},
+        containerStyle: this.props.style || {}
+    };
+
+
+    mounted = false;
 
     /**
     | -------------------------------------------------------
@@ -176,7 +241,7 @@ export default class VideoPlayer extends Component {
      *
      * @param {object} data The video meta data
      */
-    _onLoad(data = {}) {
+    _onLoad(data: any = {}) {
         let state = this.state;
 
         state.duration = data.duration;
@@ -198,7 +263,7 @@ export default class VideoPlayer extends Component {
      *
      * @param {object} data The video meta data
      */
-    _onProgress(data = {}) {
+    _onProgress(data: any = {}) {
         let state = this.state;
         state.currentTime = data.currentTime;
 
@@ -621,14 +686,6 @@ export default class VideoPlayer extends Component {
                 paused: nextProps.paused
             })
         }
-
-        if (this.props.videoStyle !== nextProps.videoStyle) {
-            this.props.videoStyle = nextProps.videoStyle;
-        }
-
-        if (this.props.containerStyle !== nextProps.style) {
-            this.props.containerStyle = nextProps.style;
-        }
     }
 
     /**
@@ -907,34 +964,6 @@ export default class VideoPlayer extends Component {
                 />
             </View>
         )
-        return (
-            <View style={styles.seekbar.container}>
-                <View
-                    style={styles.seekbar.track}
-                    onLayout={event => this.player.seekerWidth = event.nativeEvent.layout.width}
-                >
-                    <View style={[
-                        styles.seekbar.fill,
-                        {
-                            width: this.state.seekerFillWidth,
-                            backgroundColor: this.props.seekColor || '#FFF'
-                        }
-                    ]} />
-                </View>
-                <View
-                    style={[
-                        styles.seekbar.handle,
-                        { left: this.state.seekerPosition }
-                    ]}
-                    {...this.player.seekPanResponder.panHandlers}
-                >
-                    <View style={[
-                        styles.seekbar.circle,
-                        { backgroundColor: this.props.seekColor || '#FFF' }]}
-                    />
-                </View>
-            </View>
-        );
     }
 
     /**
@@ -1119,6 +1148,7 @@ const styles = {
             alignItems: 'center',
             justifyContent: 'center',
         },
+        icon: {}
     }),
     controls: StyleSheet.create({
         row: {
@@ -1211,6 +1241,7 @@ const styles = {
             fontSize: 11,
             textAlign: I18nManager.isRTL ? 'right' : 'left',
         },
+        back: {}
     }),
     volume: StyleSheet.create({
         container: {
@@ -1273,5 +1304,6 @@ const styles = {
             height: 12,
             width: 12,
         },
+
     })
 };
